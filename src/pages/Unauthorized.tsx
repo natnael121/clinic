@@ -1,9 +1,16 @@
 import React from 'react';
 import { ShieldX } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 
 export function Unauthorized() {
   const { signOut } = useAuthContext();
+  const navigate = useNavigate();
+
+  const handleReturnToLogin = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -17,7 +24,7 @@ export function Unauthorized() {
             You don't have permission to access this page. Please contact your administrator.
           </p>
           <button
-            onClick={signOut}
+            onClick={handleReturnToLogin}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
           >
             Return to Login

@@ -5,6 +5,7 @@ import * as yup from 'yup';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
+import { signOut } from 'firebase/auth';
 import { useAuthContext } from '../../context/AuthContext';
 import { Users, Plus, X, Save, UserCheck, Shield } from 'lucide-react';
 import { User } from '../../types';
@@ -67,6 +68,9 @@ export function UserManagement() {
   const onSubmit = async (data: UserFormData) => {
     setIsSubmitting(true);
     setError(null);
+    
+    // Store current auth state
+    const currentUser = auth.currentUser;
 
     try {
       // Create Firebase user
@@ -84,6 +88,12 @@ export function UserManagement() {
         updated_at: new Date(),
       });
 
+      // Sign out the newly created user and restore admin session
+      await signOut(auth);
+      
+      // The auth state will automatically restore the admin user
+      // since we're still in the admin's browser session
+      
       await fetchUsers();
       setShowCreateModal(false);
       reset();

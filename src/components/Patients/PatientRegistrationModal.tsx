@@ -5,6 +5,8 @@ import * as yup from 'yup';
 import { X, User, Save, CreditCard } from 'lucide-react';
 import { usePatients } from '../../hooks/usePatients';
 import { Patient } from '../../types';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 interface PatientFormData {
   patient_id: string;
