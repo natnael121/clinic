@@ -4,7 +4,16 @@ export const USER_ROLES = {
   LAB_TECHNICIAN: 'lab_technician',
   PHARMACIST: 'pharmacist',
   ADMIN: 'admin',
+  TRIAGE_OFFICER: 'triage_officer',
 } as const;
+
+export const TRIAGE_PRIORITY_LEVELS = [
+  { value: 'emergency', label: 'Emergency (Red)', color: 'bg-red-500' },
+  { value: 'urgent', label: 'Urgent (Orange)', color: 'bg-orange-500' },
+  { value: 'semi_urgent', label: 'Semi-Urgent (Yellow)', color: 'bg-yellow-500' },
+  { value: 'standard', label: 'Standard (Green)', color: 'bg-green-500' },
+  { value: 'non_urgent', label: 'Non-Urgent (Blue)', color: 'bg-blue-500' },
+];
 
 export const APPOINTMENT_STATUS = {
   SCHEDULED: 'scheduled',

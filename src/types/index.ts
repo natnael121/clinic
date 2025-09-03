@@ -1,12 +1,51 @@
 export interface User {
   id: string;
   email: string;
-  role: 'receptionist' | 'doctor' | 'lab_technician' | 'pharmacist' | 'admin';
+  role: 'receptionist' | 'doctor' | 'lab_technician' | 'pharmacist' | 'admin' | 'triage_officer';
   first_name: string;
   last_name: string;
   phone?: string;
+  clinic_id?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface Clinic {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  admin_id: string;
+  license_number?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TriageAssessment {
+  id: string;
+  patient_id: string;
+  triage_officer_id: string;
+  appointment_id?: string;
+  priority_level: 'emergency' | 'urgent' | 'semi_urgent' | 'standard' | 'non_urgent';
+  chief_complaint: string;
+  vital_signs: {
+    temperature?: number;
+    blood_pressure_systolic?: number;
+    blood_pressure_diastolic?: number;
+    heart_rate?: number;
+    respiratory_rate?: number;
+    oxygen_saturation?: number;
+    pain_scale?: number;
+  };
+  symptoms: string[];
+  assessment_notes: string;
+  recommended_action: string;
+  estimated_wait_time?: number;
+  created_at: string;
+  updated_at: string;
+  patient?: Patient;
+  triage_officer?: User;
 }
 
 export interface Patient {
