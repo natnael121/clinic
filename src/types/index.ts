@@ -62,12 +62,17 @@ export interface Patient {
   emergency_contact_phone: string;
   medical_history?: string;
   allergies?: string;
-  card_status: 'active' | 'expired' | 'suspended';
+  card_status: 'active' | 'expired' | 'suspended' | 'inactive';
   card_expiry_date: string;
+  card_activated_date?: string;
+  assigned_doctor_id?: string;
+  daily_activation_required: boolean;
+  last_daily_activation?: string;
   last_payment_date?: string;
   payment_due_date?: string;
   created_at: string;
   updated_at: string;
+  assigned_doctor?: User;
 }
 
 export interface Appointment {

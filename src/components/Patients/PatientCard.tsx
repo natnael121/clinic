@@ -1,7 +1,7 @@
 import React from 'react';
-import { Calendar, Phone, MapPin, User, CreditCard, AlertTriangle } from 'lucide-react';
+import { Calendar, Phone, MapPin, User, CreditCard, AlertTriangle, Clock, UserCheck } from 'lucide-react';
 import { Patient } from '../../types';
-import { format, isAfter, differenceInDays } from 'date-fns';
+import { format, isAfter, differenceInDays, startOfDay } from 'date-fns';
 
 interface PatientCardProps {
   patient: Patient;
@@ -14,9 +14,19 @@ export function PatientCard({ patient, showFullInfo = false, onClick }: PatientC
   const isCardExpired = isAfter(new Date(), new Date(patient.card_expiry_date));
   const daysUntilExpiry = differenceInDays(new Date(patient.card_expiry_date), new Date());
   
+  const needsDailyActivation = () => {
+    if (!patient.daily_activation_required) return false;
+    const today = startOfDay(new Date());
+    const lastActivation = patient.last_daily_activation 
+      ? startOfDay(new Date(patient.last_daily_activation))
+      : null;
+    return !lastActivation || lastActivation < today;
+  };
+  
   const getCardStatusColor = () => {
     if (patient.card_status === 'expired' || isCardExpired) return 'bg-red-100 text-red-800';
     if (patient.card_status === 'suspended') return 'bg-gray-100 text-gray-800';
+    if (needsDailyActivation()) return 'bg-yellow-100 text-yellow-800';
     if (daysUntilExpiry <= 5) return 'bg-yellow-100 text-yellow-800';
     return 'bg-green-100 text-green-800';
   };
@@ -24,6 +34,7 @@ export function PatientCard({ patient, showFullInfo = false, onClick }: PatientC
   const getCardStatusText = () => {
     if (patient.card_status === 'expired' || isCardExpired) return 'EXPIRED';
     if (patient.card_status === 'suspended') return 'SUSPENDED';
+    if (needsDailyActivation()) return 'NEEDS ACTIVATION';
     if (daysUntilExpiry <= 5) return `EXPIRES IN ${daysUntilExpiry}D`;
     return 'ACTIVE';
   };
@@ -53,6 +64,14 @@ export function PatientCard({ patient, showFullInfo = false, onClick }: PatientC
               {getCardStatusText()}
             </span>
           </div>
+          {patient.assigned_doctor_id && (
+            <div className="flex items-center space-x-1">
+              <UserCheck className="w-3 h-3 text-gray-400" />
+              <span className="text-xs text-gray-500">
+                Dr. {patient.assigned_doctor?.first_name} {patient.assigned_doctor?.last_name}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -71,10 +90,19 @@ export function PatientCard({ patient, showFullInfo = false, onClick }: PatientC
         </div>
       </div>
       
-      {(isCardExpired || patient.card_status === 'expired') && (
+      {(isCardExpired || patient.card_status === 'expired' || needsDailyActivation()) && (
         <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
-          <AlertTriangle className="w-4 h-4 text-red-600" />
-          <span className="text-sm text-red-700">Card expired - Payment required for activation</span>
+          {needsDailyActivation() ? (
+            <>
+              <Clock className="w-4 h-4 text-yellow-600" />
+              <span className="text-sm text-yellow-700">Daily activation required</span>
+            </>
+          ) : (
+            <>
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              <span className="text-sm text-red-700">Card expired - Payment required for activation</span>
+            </>
+          )}
         </div>
       )}
     </div>

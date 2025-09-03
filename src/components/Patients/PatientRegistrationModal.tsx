@@ -19,6 +19,8 @@ interface PatientFormData {
   emergency_contact_phone: string;
   medical_history?: string;
   allergies?: string;
+  assigned_doctor_id: string;
+  daily_activation_required: boolean;
   initial_payment?: number;
   card_validity_days?: number;
 }
@@ -41,6 +43,8 @@ const schema = yup.object({
   emergency_contact_phone: yup.string().required('Emergency contact phone is required'),
   medical_history: yup.string(),
   allergies: yup.string(),
+  assigned_doctor_id: yup.string().required('Doctor assignment is required'),
+  daily_activation_required: yup.boolean().required(),
   initial_payment: yup.number().min(0, 'Payment must be positive'),
   card_validity_days: yup.number().min(1, 'Must be at least 1 day'),
 });
@@ -48,16 +52,36 @@ const schema = yup.object({
 export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistrationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<any[]>([]);
   const { addPatient } = usePatients();
 
   const { register, handleSubmit, formState: { errors } } = useForm<PatientFormData>({
     resolver: yupResolver(schema),
     defaultValues: {
       patient_id: `P${Date.now().toString().slice(-6)}`, // Generate unique ID
+      daily_activation_required: true,
       initial_payment: 50,
       card_validity_days: 30,
     }
   });
+
+  React.useEffect(() => {
+    fetchDoctors();
+  }, []);
+
+  const fetchDoctors = async () => {
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', 'doctor'));
+      const querySnapshot = await getDocs(q);
+      const doctorsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setDoctors(doctorsData);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
 
   const onSubmit = async (data: PatientFormData) => {
     setIsSubmitting(true);
@@ -67,6 +91,8 @@ export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistra
       ...data,
       card_status: 'active' as const,
       card_expiry_date: new Date(Date.now() + (data.card_validity_days || 30) * 24 * 60 * 60 * 1000).toISOString(),
+      card_activated_date: new Date().toISOString(),
+      last_daily_activation: new Date().toISOString(),
       last_payment_date: new Date().toISOString(),
       payment_due_date: new Date(Date.now() + (data.card_validity_days || 30) * 24 * 60 * 60 * 1000).toISOString(),
     };
@@ -245,12 +271,45 @@ export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistra
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Assign Doctor
+            </label>
+            <select
+              {...register('assigned_doctor_id')}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a doctor</option>
+              {doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  Dr. {doctor.first_name} {doctor.last_name}
+                </option>
+              ))}
+            </select>
+            {errors.assigned_doctor_id && (
+              <p className="mt-1 text-sm text-red-600">{errors.assigned_doctor_id.message}</p>
+            )}
+          </div>
+
           <div className="border-t border-gray-200 pt-6">
             <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center space-x-2">
               <CreditCard className="w-4 h-4 text-green-600" />
               <span>Card Activation</span>
             </h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <input
+                  {...register('daily_activation_required')}
+                  type="checkbox"
+                  id="daily_activation"
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="daily_activation" className="text-sm font-medium text-gray-700">
+                  Require daily activation (card deactivates at midnight)
+                </label>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Initial Payment ($)
@@ -277,6 +336,7 @@ export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistra
                   placeholder="30"
                 />
               </div>
+            </div>
             </div>
           </div>
 

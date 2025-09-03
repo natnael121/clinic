@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { CreditCard, X, Save, DollarSign } from 'lucide-react';
+import { CreditCard, X, Save, DollarSign, UserCheck } from 'lucide-react';
 import { usePatients } from '../../hooks/usePatients';
 import { Patient } from '../../types';
 import { addDays, format } from 'date-fns';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 interface CardActivationFormData {
   payment_amount: number;
   payment_method: 'cash' | 'card' | 'insurance';
   validity_days: number;
+  assigned_doctor_id: string;
+  daily_activation_required: boolean;
   notes?: string;
 }
 
@@ -18,6 +22,8 @@ const schema = yup.object({
   payment_amount: yup.number().min(0, 'Amount must be positive').required('Payment amount is required'),
   payment_method: yup.string().oneOf(['cash', 'card', 'insurance']).required('Payment method is required'),
   validity_days: yup.number().min(1, 'Must be at least 1 day').required('Validity period is required'),
+  assigned_doctor_id: yup.string().required('Doctor assignment is required'),
+  daily_activation_required: yup.boolean().required(),
   notes: yup.string(),
 });
 
@@ -30,6 +36,7 @@ interface CardActivationModalProps {
 export function CardActivationModal({ patient, onClose, onSuccess }: CardActivationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<any[]>([]);
   const { updatePatient } = usePatients();
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<CardActivationFormData>({
@@ -37,8 +44,28 @@ export function CardActivationModal({ patient, onClose, onSuccess }: CardActivat
     defaultValues: {
       validity_days: 30,
       payment_amount: 50,
+      daily_activation_required: true,
+      assigned_doctor_id: patient.assigned_doctor_id || '',
     }
   });
+
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
+
+  const fetchDoctors = async () => {
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', 'doctor'));
+      const querySnapshot = await getDocs(q);
+      const doctorsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setDoctors(doctorsData);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
 
   const validityDays = watch('validity_days');
   const newExpiryDate = addDays(new Date(), validityDays);
@@ -51,6 +78,10 @@ export function CardActivationModal({ patient, onClose, onSuccess }: CardActivat
       const updateData = {
         card_status: 'active' as const,
         card_expiry_date: newExpiryDate.toISOString(),
+        card_activated_date: new Date().toISOString(),
+        assigned_doctor_id: data.assigned_doctor_id,
+        daily_activation_required: data.daily_activation_required,
+        last_daily_activation: new Date().toISOString(),
         last_payment_date: new Date().toISOString(),
         payment_due_date: newExpiryDate.toISOString(),
       };
@@ -105,7 +136,32 @@ export function CardActivationModal({ patient, onClose, onSuccess }: CardActivat
             <div className="text-sm text-blue-600">
               Status: <span className="font-medium">{patient.card_status.toUpperCase()}</span><br />
               Expires: <span className="font-medium">{format(new Date(patient.card_expiry_date), 'MMM dd, yyyy')}</span>
+              {patient.assigned_doctor_id && (
+                <>
+                  <br />Assigned Doctor: <span className="font-medium">Dr. {patient.assigned_doctor?.first_name} {patient.assigned_doctor?.last_name}</span>
+                </>
+              )}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Assign Doctor
+            </label>
+            <select
+              {...register('assigned_doctor_id')}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a doctor</option>
+              {doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  Dr. {doctor.first_name} {doctor.last_name}
+                </option>
+              ))}
+            </select>
+            {errors.assigned_doctor_id && (
+              <p className="mt-1 text-sm text-red-600">{errors.assigned_doctor_id.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -164,6 +220,18 @@ export function CardActivationModal({ patient, onClose, onSuccess }: CardActivat
             <p className="mt-1 text-xs text-gray-500">
               Card will expire on: {format(newExpiryDate, 'MMM dd, yyyy')}
             </p>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <input
+              {...register('daily_activation_required')}
+              type="checkbox"
+              id="daily_activation"
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="daily_activation" className="text-sm font-medium text-gray-700">
+              Require daily activation (card deactivates at midnight)
+            </label>
           </div>
 
           <div>

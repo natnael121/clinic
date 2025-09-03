@@ -6,7 +6,9 @@ import { PatientRegistrationModal } from '../../components/Patients/PatientRegis
 import { CardActivationModal } from '../../components/Patients/CardActivationModal';
 import { PatientSearchModal } from '../../components/Patients/PatientSearchModal';
 import { useAuthContext } from '../../context/AuthContext';
-import { isAfter, differenceInDays } from 'date-fns';
+import { isAfter, differenceInDays, startOfDay } from 'date-fns';
+import { DailyActivationModal } from '../../components/Patients/DailyActivationModal';
+import { PatientHistoryModal } from '../../components/Doctor/PatientHistoryModal';
 
 export function PatientList() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,13 +16,32 @@ export function PatientList() {
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showActivationModal, setShowActivationModal] = useState(false);
+  const [showDailyActivationModal, setShowDailyActivationModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired' | 'expiring_soon'>('all');
-  const { patients, loading } = usePatients();
+  const { patients, loading } = usePatients(user?.id, user?.role);
   const { user } = useAuthContext();
 
   const isReceptionist = user?.role === 'receptionist' || user?.role === 'admin';
+  const isDoctor = user?.role === 'doctor';
 
+  // Count patients needing activation
+  const needsActivation = patients.filter(patient => {
+    const isExpired = isAfter(new Date(), new Date(patient.card_expiry_date));
+    if (isExpired) return true;
+    
+    if (patient.daily_activation_required) {
+      const today = startOfDay(new Date());
+      const lastActivation = patient.last_daily_activation 
+        ? startOfDay(new Date(patient.last_daily_activation))
+        : null;
+      
+      return !lastActivation || lastActivation < today;
+    }
+    
+    return false;
+  }).length;
   const filteredPatients = patients.filter(patient =>
     `${patient.first_name} ${patient.last_name} ${patient.patient_id}`.toLowerCase()
       .includes(searchTerm.toLowerCase())
@@ -32,7 +53,11 @@ export function PatientList() {
     
     switch (filterStatus) {
       case 'active':
-        return patient.card_status === 'active' && !isExpired;
+        const needsDailyActivation = patient.daily_activation_required && (
+          !patient.last_daily_activation || 
+          startOfDay(new Date(patient.last_daily_activation)) < startOfDay(new Date())
+        );
+        return patient.card_status === 'active' && !isExpired && !needsDailyActivation;
       case 'expired':
         return patient.card_status === 'expired' || isExpired;
       case 'expiring_soon':
@@ -42,13 +67,31 @@ export function PatientList() {
     }
   });
 
-  const expiredCardsCount = patients.filter(p => 
-    p.card_status === 'expired' || isAfter(new Date(), new Date(p.card_expiry_date))
-  ).length;
 
   const handleActivateCard = (patient: any) => {
     setSelectedPatient(patient);
     setShowActivationModal(true);
+  };
+
+  const handleDailyActivation = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowDailyActivationModal(true);
+  };
+
+  const needsDailyActivation = (patient: any) => {
+    if (!patient.daily_activation_required) return false;
+    const today = startOfDay(new Date());
+    const lastActivation = patient.last_daily_activation 
+      ? startOfDay(new Date(patient.last_daily_activation))
+      : null;
+    return !lastActivation || lastActivation < today;
+  };
+
+  const handlePatientClick = (patient: any) => {
+    if (isDoctor) {
+      setSelectedPatient(patient);
+      setShowHistoryModal(true);
+    }
   };
 
   const isPhoneSearch = searchType === 'phone';
@@ -65,34 +108,40 @@ export function PatientList() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
-          <p className="text-gray-600 mt-2">Manage patient records and information</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isDoctor ? 'My Patients' : 'Patients'}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {isDoctor ? 'View your assigned patients and medical records' : 'Manage patient records and information'}
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={() => setShowSearchModal(true)}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
-          >
-            <Search className="w-5 h-5" />
-            <span>Advanced Search</span>
-          </button>
-          <button 
-            onClick={() => setShowRegistrationModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <UserPlus className="w-5 h-5" />
-            <span>Register New Patient</span>
-          </button>
-        </div>
+        {!isDoctor && (
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            >
+              <Search className="w-5 h-5" />
+              <span>Advanced Search</span>
+            </button>
+            <button 
+              onClick={() => setShowRegistrationModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <UserPlus className="w-5 h-5" />
+              <span>Register New Patient</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {isReceptionist && expiredCardsCount > 0 && (
+      {isReceptionist && needsActivation > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <AlertTriangle className="w-5 h-5 text-red-600" />
             <div>
               <p className="font-medium text-red-800">Card Activation Required</p>
-              <p className="text-sm text-red-600">{expiredCardsCount} patient cards have expired and need activation</p>
+              <p className="text-sm text-red-600">{needsActivation} patient cards need activation</p>
             </div>
           </div>
         </div>
@@ -140,16 +189,26 @@ export function PatientList() {
                 <PatientCard
                   patient={patient}
                   showFullInfo={isPhoneSearch}
-                  onClick={() => {}}
+                  onClick={() => handlePatientClick(patient)}
                 />
-                {isReceptionist && (patient.card_status === 'expired' || isAfter(new Date(), new Date(patient.card_expiry_date))) && (
-                  <button
-                    onClick={() => handleActivateCard(patient)}
-                    className="absolute top-2 right-2 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors"
-                    title="Activate Card"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                  </button>
+                {isReceptionist && (
+                  (patient.card_status === 'expired' || isAfter(new Date(), new Date(patient.card_expiry_date))) ? (
+                    <button
+                      onClick={() => handleActivateCard(patient)}
+                      className="absolute top-2 right-2 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors"
+                      title="Activate Card"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                    </button>
+                  ) : needsDailyActivation(patient) ? (
+                    <button
+                      onClick={() => handleDailyActivation(patient)}
+                      className="absolute top-2 right-2 bg-yellow-600 text-white p-2 rounded-lg hover:bg-yellow-700 transition-colors"
+                      title="Daily Activation Required"
+                    >
+                      <Clock className="w-4 h-4" />
+                    </button>
+                  ) : null
                 )}
               </div>
             ))}
@@ -157,16 +216,21 @@ export function PatientList() {
           {filteredPatients.length === 0 && (
             <div className="text-center py-8">
               <p className="text-gray-500">
-                {searchTerm ? 'No patients found matching your search.' : 'No patients registered yet.'}
+                {isDoctor 
+                  ? 'No assigned patients found.' 
+                  : searchTerm 
+                    ? 'No patients found matching your search.' 
+                    : 'No patients registered yet.'
+                }
               </p>
-              {!searchTerm && (
-                <button 
-                  onClick={() => setShowRegistrationModal(true)}
-                  className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Register First Patient</span>
-                </button>
+              {!searchTerm && !isDoctor && (
+                  <button
+                    onClick={() => handleActivateCard(patient)}
+                    className="absolute top-2 right-2 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors"
+                    title="Activate Card"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                  </button>
               )}
             </div>
           )}
@@ -182,12 +246,40 @@ export function PatientList() {
         />
       )}
 
-      {showSearchModal && (
+      {showSearchModal && !isDoctor && (
         <PatientSearchModal
           onClose={() => setShowSearchModal(false)}
           onSelectPatient={(patientId) => {
             setShowSearchModal(false);
             // Handle patient selection
+          }}
+        />
+      )}
+
+      {showDailyActivationModal && selectedPatient && (
+        <DailyActivationModal
+          patient={selectedPatient}
+          onClose={() => {
+            setShowDailyActivationModal(false);
+            setSelectedPatient(null);
+          }}
+          onSuccess={() => {
+            setShowDailyActivationModal(false);
+            setSelectedPatient(null);
+          }}
+        />
+      )}
+
+      {showHistoryModal && selectedPatient && (
+        <PatientHistoryModal
+          patient={selectedPatient}
+          onClose={() => {
+            setShowHistoryModal(false);
+            setSelectedPatient(null);
+          }}
+          onSuccess={() => {
+            setShowHistoryModal(false);
+            setSelectedPatient(null);
           }}
         />
       )}
