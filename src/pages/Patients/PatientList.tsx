@@ -20,8 +20,8 @@ export function PatientList() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired' | 'expiring_soon'>('all');
-  const { patients, loading } = usePatients(user?.id, user?.role);
   const { user } = useAuthContext();
+  const { patients, loading } = usePatients(user?.id, user?.role);
 
   const isReceptionist = user?.role === 'receptionist' || user?.role === 'admin';
   const isDoctor = user?.role === 'doctor';
