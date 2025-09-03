@@ -53,3 +53,9 @@ export const LAB_TEST_TYPES = [
   { value: 'ct_scan', label: 'CT Scan' },
   { value: 'other', label: 'Other' },
 ];
+
+export const CARD_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active', color: 'bg-green-100 text-green-800' },
+  { value: 'expired', label: 'Expired', color: 'bg-red-100 text-red-800' },
+  { value: 'suspended', label: 'Suspended', color: 'bg-gray-100 text-gray-800' },
+];

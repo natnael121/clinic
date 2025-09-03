@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StatsCard } from '../../components/Dashboard/StatsCard';
+import { CardPolicySettings } from '../../components/Admin/CardPolicySettings';
 import { 
   Users, 
   Calendar, 
@@ -8,17 +9,20 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  CreditCard
 } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
 export function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'card_policy'>('overview');
   const [stats, setStats] = useState({
     totalPatients: 0,
     todayAppointments: 0,
     pendingLabResults: 0,
     monthlyRevenue: 0,
+    expiredCards: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -49,10 +53,19 @@ export function AdminDashboard() {
       const labTestsSnapshot = await getDocs(labTestsQuery);
       const pendingLabResults = labTestsSnapshot.size;
 
+      // Fetch expired cards
+      const expiredCardsQuery = query(
+        collection(db, 'patients'),
+        where('card_expiry_date', '<', today)
+      );
+      const expiredCardsSnapshot = await getDocs(expiredCardsQuery);
+      const expiredCards = expiredCardsSnapshot.size;
+
       setStats({
         totalPatients,
         todayAppointments,
         pendingLabResults,
+        expiredCards,
         monthlyRevenue: 45230, // Mock data for now
       });
     } catch (error) {
@@ -91,6 +104,12 @@ export function AdminDashboard() {
       color: 'yellow' as const, 
       trend: { value: 2, isPositive: false } 
     },
+    { 
+      title: 'Expired Cards', 
+      value: loading ? '...' : stats.expiredCards.toString(), 
+      icon: CreditCard, 
+      color: 'red' as const 
+    },
   ];
 
   const recentActivity = [
@@ -107,7 +126,36 @@ export function AdminDashboard() {
         <p className="text-gray-600 mt-2">Monitor clinic operations and performance</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              OVERVIEW
+            </button>
+            <button
+              onClick={() => setActiveTab('card_policy')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'card_policy'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              CARD POLICY
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {activeTab === 'overview' && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {statsData.map((stat, index) => (
           <StatsCard key={index} {...stat} />
         ))}
@@ -159,6 +207,12 @@ export function AdminDashboard() {
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {activeTab === 'card_policy' && (
+        <CardPolicySettings />
+      )}
     </div>
   );
 }

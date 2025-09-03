@@ -19,6 +19,8 @@ interface PatientFormData {
   emergency_contact_phone: string;
   medical_history?: string;
   allergies?: string;
+  initial_payment?: number;
+  card_validity_days?: number;
 }
 
 interface PatientRegistrationModalProps {
@@ -39,6 +41,8 @@ const schema = yup.object({
   emergency_contact_phone: yup.string().required('Emergency contact phone is required'),
   medical_history: yup.string(),
   allergies: yup.string(),
+  initial_payment: yup.number().min(0, 'Payment must be positive'),
+  card_validity_days: yup.number().min(1, 'Must be at least 1 day'),
 });
 
 export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistrationModalProps) {
@@ -50,6 +54,8 @@ export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistra
     resolver: yupResolver(schema),
     defaultValues: {
       patient_id: `P${Date.now().toString().slice(-6)}`, // Generate unique ID
+      initial_payment: 50,
+      card_validity_days: 30,
     }
   });
 
@@ -57,7 +63,15 @@ export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistra
     setIsSubmitting(true);
     setError(null);
 
-    const result = await addPatient(data);
+    const patientData = {
+      ...data,
+      card_status: 'active' as const,
+      card_expiry_date: new Date(Date.now() + (data.card_validity_days || 30) * 24 * 60 * 60 * 1000).toISOString(),
+      last_payment_date: new Date().toISOString(),
+      payment_due_date: new Date(Date.now() + (data.card_validity_days || 30) * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    const result = await addPatient(patientData);
     
     if (result.error) {
       setError('Failed to register patient. Please try again.');
@@ -228,6 +242,41 @@ export function PatientRegistrationModal({ onClose, onSuccess }: PatientRegistra
               {errors.emergency_contact_phone && (
                 <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_phone.message}</p>
               )}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <CreditCard className="w-4 h-4 text-green-600" />
+              <span>Card Activation</span>
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Initial Payment ($)
+                </label>
+                <input
+                  {...register('initial_payment')}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="50.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Card Validity (Days)
+                </label>
+                <input
+                  {...register('card_validity_days')}
+                  type="number"
+                  min="1"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="30"
+                />
+              </div>
             </div>
           </div>
 

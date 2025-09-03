@@ -62,6 +62,10 @@ export interface Patient {
   emergency_contact_phone: string;
   medical_history?: string;
   allergies?: string;
+  card_status: 'active' | 'expired' | 'suspended';
+  card_expiry_date: string;
+  last_payment_date?: string;
+  payment_due_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -172,4 +176,45 @@ export interface Invoice {
   created_at: string;
   updated_at: string;
   patient?: Patient;
+}
+
+export interface PatientCardPolicy {
+  id: string;
+  clinic_id: string;
+  card_validity_days: number;
+  grace_period_days: number;
+  auto_suspend: boolean;
+  payment_reminder_days: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PatientVisit {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  appointment_id?: string;
+  visit_date: string;
+  chief_complaint: string;
+  history_of_present_illness: string;
+  physical_examination: string;
+  diagnosis: string;
+  treatment_plan: string;
+  follow_up_instructions?: string;
+  lab_tests_requested?: string[];
+  prescriptions_given?: string[];
+  vital_signs: {
+    temperature?: number;
+    blood_pressure_systolic?: number;
+    blood_pressure_diastolic?: number;
+    heart_rate?: number;
+    respiratory_rate?: number;
+    weight?: number;
+    height?: number;
+    oxygen_saturation?: number;
+  };
+  created_at: string;
+  updated_at: string;
+  patient?: Patient;
+  doctor?: User;
 }

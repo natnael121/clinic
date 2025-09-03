@@ -1,17 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Users, Pill, TestTube, Clock, FileText } from 'lucide-react';
+import { Calendar, Users, Pill, TestTube, Clock, FileText, Stethoscope } from 'lucide-react';
 import { StatsCard } from '../../components/Dashboard/StatsCard';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePrescriptions } from '../../hooks/usePrescriptions';
 import { useLabTests } from '../../hooks/useLabTests';
+import { usePatients } from '../../hooks/usePatients';
 import { useAuthContext } from '../../context/AuthContext';
+import { PatientVisitModal } from '../../components/Doctor/PatientVisitModal';
+import { PatientSearchModal } from '../../components/Patients/PatientSearchModal';
 import { format } from 'date-fns';
 
 export function DoctorDashboard() {
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showPatientSearch, setShowPatientSearch] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const { user } = useAuthContext();
   const { appointments } = useAppointments(user?.id);
   const { prescriptions } = usePrescriptions(user?.id);
   const { labTests } = useLabTests();
+  const { patients } = usePatients();
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
@@ -41,11 +48,29 @@ export function DoctorDashboard() {
     { task: 'Sign pending prescriptions', priority: 'low' as const },
   ];
 
+  const handleSelectPatient = (patientId: string) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (patient) {
+      setSelectedPatient(patient);
+      setShowPatientSearch(false);
+      setShowVisitModal(true);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
-        <p className="text-gray-600 mt-2">Manage your patients and medical practice</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
+          <p className="text-gray-600 mt-2">Manage your patients and medical practice</p>
+        </div>
+        <button 
+          onClick={() => setShowPatientSearch(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+        >
+          <Stethoscope className="w-5 h-5" />
+          <span>See Patient</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -103,6 +128,27 @@ export function DoctorDashboard() {
           </div>
         </div>
       </div>
+
+      {showPatientSearch && (
+        <PatientSearchModal
+          onClose={() => setShowPatientSearch(false)}
+          onSelectPatient={handleSelectPatient}
+        />
+      )}
+
+      {showVisitModal && selectedPatient && (
+        <PatientVisitModal
+          patient={selectedPatient}
+          onClose={() => {
+            setShowVisitModal(false);
+            setSelectedPatient(null);
+          }}
+          onSuccess={() => {
+            setShowVisitModal(false);
+            setSelectedPatient(null);
+          }}
+        />
+      )}
     </div>
   );
 }
