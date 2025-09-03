@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Stethoscope, AlertCircle } from 'lucide-react';
+import { Stethoscope, AlertCircle, Building } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface LoginFormData {
   email: string;
@@ -99,6 +100,16 @@ export function LoginForm({ onLogin, loading }: LoginFormProps) {
             Demo Credentials:<br />
             Admin: admin@clinic.com / admin123<br />
             Doctor: doctor@clinic.com / doctor123
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link
+              to="/admin-signup"
+              className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+            >
+              <Building className="w-4 h-4" />
+              <span>Create New Clinic</span>
+            </Link>
           </div>
         </div>
       </div>

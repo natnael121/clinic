@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { LoginForm } from '../../components/Auth/LoginForm';
 import { useAuthContext } from '../../context/AuthContext';
 
@@ -20,6 +20,7 @@ export function Login() {
       admin: '/dashboard',
       doctor: '/patients',
       receptionist: '/patients',
+      triage_officer: '/triage',
       lab_technician: '/lab-tests',
       pharmacist: '/prescriptions',
     };

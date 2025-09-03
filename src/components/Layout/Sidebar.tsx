@@ -11,7 +11,8 @@ import {
   UserPlus,
   ClipboardList,
   BarChart3,
-  LogOut
+  LogOut,
+  Heart
 } from 'lucide-react';
 import { User } from '../../types';
 
@@ -31,6 +32,11 @@ const roleMenus = {
     { to: '/appointments', icon: Calendar, label: 'My Appointments' },
     { to: '/prescriptions', icon: Pill, label: 'Prescriptions' },
     { to: '/lab-requests', icon: TestTube, label: 'Lab Requests' },
+  ],
+  triage_officer: [
+    { to: '/triage', icon: Heart, label: 'Triage Queue' },
+    { to: '/patients', icon: Users, label: 'Patients' },
+    { to: '/appointments', icon: Calendar, label: 'Appointments' },
   ],
   lab_technician: [
     { to: '/lab-tests', icon: TestTube, label: 'Lab Tests' },

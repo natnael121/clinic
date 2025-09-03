@@ -4,13 +4,16 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppLayout } from './components/Layout/AppLayout';
 import { Login } from './pages/Auth/Login';
+import { AdminSignup } from './pages/Auth/AdminSignup';
 import { Unauthorized } from './pages/Unauthorized';
 import { AdminDashboard } from './pages/Dashboard/AdminDashboard';
 import { DoctorDashboard } from './pages/Doctor/DoctorDashboard';
+import { TriageDashboard } from './pages/Triage/TriageDashboard';
 import { LabDashboard } from './pages/Lab/LabDashboard';
 import { PharmacyDashboard } from './pages/Pharmacy/PharmacyDashboard';
 import { PatientList } from './pages/Patients/PatientList';
 import { AppointmentScheduler } from './pages/Appointments/AppointmentScheduler';
+import { UserManagement } from './pages/Admin/UserManagement';
 
 function App() {
   return (
@@ -18,6 +21,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/admin-signup" element={<AdminSignup />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           
           <Route path="/" element={
@@ -32,15 +36,28 @@ function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="users" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <UserManagement />
+              </ProtectedRoute>
+            } />
+            
+            {/* Triage Routes */}
+            <Route path="triage" element={
+              <ProtectedRoute allowedRoles={['triage_officer', 'admin']}>
+                <TriageDashboard />
+              </ProtectedRoute>
+            } />
+            
             {/* Doctor Routes */}
             <Route path="patients" element={
-              <ProtectedRoute allowedRoles={['doctor', 'receptionist', 'admin']}>
+              <ProtectedRoute allowedRoles={['doctor', 'receptionist', 'triage_officer', 'admin']}>
                 <PatientList />
               </ProtectedRoute>
             } />
             
             <Route path="appointments" element={
-              <ProtectedRoute allowedRoles={['doctor', 'receptionist', 'admin']}>
+              <ProtectedRoute allowedRoles={['doctor', 'receptionist', 'triage_officer', 'admin']}>
                 <AppointmentScheduler />
               </ProtectedRoute>
             } />

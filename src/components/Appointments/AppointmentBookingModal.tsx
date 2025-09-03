@@ -5,6 +5,7 @@ import * as yup from 'yup';
 import { X, Calendar, Save } from 'lucide-react';
 import { useAppointments } from '../../hooks/useAppointments';
 import { useAuthContext } from '../../context/AuthContext';
+import { format } from 'date-fns';
 import { Patient } from '../../types';
 
 interface AppointmentFormData {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pill, Package, AlertTriangle, CheckCircle, Check } from 'lucide-react';
 import { StatsCard } from '../../components/Dashboard/StatsCard';
 import { usePrescriptions } from '../../hooks/usePrescriptions';
+import { format } from 'date-fns';
 
 export function PharmacyDashboard() {
   const [activeTab, setActiveTab] = useState<'prescriptions' | 'inventory'>('prescriptions');
