@@ -42,16 +42,11 @@ export function UserManagement() {
 
   React.useEffect(() => {
     fetchUsers();
-  }, [currentUser]);
+  }, []);
 
   const fetchUsers = async () => {
-    if (!currentUser?.clinic_id) return;
-    
     try {
-      const q = query(
-        collection(db, 'users'),
-        where('clinic_id', '==', currentUser.clinic_id)
-      );
+      const q = collection(db, 'users');
       const querySnapshot = await getDocs(q);
       
       const usersData = querySnapshot.docs.map(doc => ({
@@ -85,7 +80,6 @@ export function UserManagement() {
         first_name: data.first_name,
         last_name: data.last_name,
         phone: data.phone,
-        clinic_id: currentUser?.clinic_id,
         created_at: new Date(),
         updated_at: new Date(),
       });

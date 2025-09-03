@@ -42,6 +42,13 @@ function App() {
               </ProtectedRoute>
             } />
             
+            {/* Admin can access all sections */}
+            <Route path="dashboard" element={
+              <ProtectedRoute allowedRoles={['doctor', 'receptionist', 'triage_officer', 'lab_technician', 'pharmacist', 'admin']}>
+                <DoctorDashboard />
+              </ProtectedRoute>
+            } />
+            
             {/* Triage Routes */}
             <Route path="triage" element={
               <ProtectedRoute allowedRoles={['triage_officer', 'admin']}>
@@ -77,7 +84,7 @@ function App() {
             } />
             
             {/* Catch all redirect */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
       </Router>

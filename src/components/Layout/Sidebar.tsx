@@ -49,9 +49,8 @@ const roleMenus = {
   admin: [
     { to: '/dashboard', icon: BarChart3, label: 'Dashboard' },
     { to: '/users', icon: Users, label: 'Staff Management' },
-    { to: '/billing', icon: CreditCard, label: 'Billing' },
-    { to: '/reports', icon: ClipboardList, label: 'Reports' },
-    { to: '/settings', icon: Settings, label: 'Settings' },
+    { to: '/patients', icon: Users, label: 'Patients' },
+    { to: '/appointments', icon: Calendar, label: 'Appointments' },
   ],
 };
 
