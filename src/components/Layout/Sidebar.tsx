@@ -25,7 +25,6 @@ const roleMenus = {
   receptionist: [
     { to: '/patients', icon: Users, label: 'Patients' },
     { to: '/appointments', icon: Calendar, label: 'Appointments' },
-    { to: '/registration', icon: UserPlus, label: 'Register Patient' },
   ],
   doctor: [
     { to: '/patients', icon: Users, label: 'Patients' },
