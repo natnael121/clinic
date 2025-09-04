@@ -8,7 +8,8 @@ import {
   query, 
   orderBy,
   where,
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Patient } from '../types';
@@ -26,15 +27,6 @@ export function usePatients(doctorId?: string, userRole?: string) {
     try {
       let q = query(collection(db, 'patients'), orderBy('created_at', 'desc'));
       
-      // If doctor is viewing, only show their assigned patients
-      if (doctorId && userRole === 'doctor') {
-        q = query(
-          collection(db, 'patients'), 
-          where('assigned_doctor_id', '==', doctorId),
-          orderBy('created_at', 'desc')
-        );
-      }
-      
       const querySnapshot = await getDocs(q);
       
       let patientsData = querySnapshot.docs.map(doc => ({
@@ -44,7 +36,32 @@ export function usePatients(doctorId?: string, userRole?: string) {
         updated_at: doc.data().updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
       })) as Patient[];
       
-      // Filter out inactive cards for non-receptionists
+      // Fetch assigned doctor information for each patient
+      for (const patient of patientsData) {
+        if (patient.assigned_doctor_id) {
+          try {
+            const doctorDoc = await getDoc(doc(db, 'users', patient.assigned_doctor_id));
+            if (doctorDoc.exists()) {
+              patient.assigned_doctor = {
+                id: doctorDoc.id,
+                ...doctorDoc.data(),
+                created_at: doctorDoc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+                updated_at: doctorDoc.data().updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+              } as any;
+            }
+          } catch (error) {
+            console.error('Error fetching doctor info:', error);
+          }
+        }
+      }
+      
+      // Apply role-based filtering
+      if (userRole === 'doctor' && doctorId) {
+        // Doctors only see their assigned patients with active cards
+        patientsData = patientsData.filter(patient => patient.assigned_doctor_id === doctorId);
+      }
+      
+      // Filter out inactive cards for non-receptionists/admins
       if (userRole !== 'receptionist' && userRole !== 'admin') {
         patientsData = patientsData.filter(patient => {
           // Check if card is expired

@@ -224,13 +224,7 @@ export function PatientList() {
                 }
               </p>
               {!searchTerm && !isDoctor && (
-                  <button
-                    onClick={() => handleActivateCard(patient)}
-                    className="absolute top-2 right-2 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors"
-                    title="Activate Card"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                  </button>
+                <p className="text-blue-600 mt-2">Register your first patient to get started.</p>
               )}
             </div>
           )}

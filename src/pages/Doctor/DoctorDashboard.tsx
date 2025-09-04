@@ -96,6 +96,9 @@ export function DoctorDashboard() {
                   <div className="font-medium text-gray-900">{patient.first_name} {patient.last_name}</div>
                   <div className="text-sm text-gray-600">ID: {patient.patient_id}</div>
                   <div className="text-sm text-gray-500">Age: {new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()}</div>
+                  {patient.phone && (
+                    <div className="text-sm text-gray-500">Phone: {patient.phone}</div>
+                  )}
                 </div>
                 <div className="text-sm text-gray-500">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -109,7 +112,7 @@ export function DoctorDashboard() {
             
             {patients.length === 0 && (
               <div className="text-center py-4 text-gray-500">
-                No assigned patients
+                No assigned patients with active cards
               </div>
             )}
           </div>

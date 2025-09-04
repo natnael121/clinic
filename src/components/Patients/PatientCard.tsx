@@ -68,7 +68,10 @@ export function PatientCard({ patient, showFullInfo = false, onClick }: PatientC
             <div className="flex items-center space-x-1">
               <UserCheck className="w-3 h-3 text-gray-400" />
               <span className="text-xs text-gray-500">
-                Dr. {patient.assigned_doctor?.first_name} {patient.assigned_doctor?.last_name}
+                {patient.assigned_doctor?.first_name 
+                  ? `Dr. ${patient.assigned_doctor.first_name} ${patient.assigned_doctor.last_name}`
+                  : 'Doctor assigned'
+                }
               </span>
             </div>
           )}
