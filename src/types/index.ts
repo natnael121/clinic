@@ -101,6 +101,9 @@ export interface Prescription {
   frequency: string;
   duration: string;
   instructions?: string;
+  quantity?: number;
+  refills?: number;
+  generic_substitution?: boolean;
   status: 'pending' | 'dispensed';
   created_at: string;
   updated_at: string;

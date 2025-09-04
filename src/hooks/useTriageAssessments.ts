@@ -8,18 +8,19 @@ import {
   query, 
   orderBy,
   where,
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { TriageAssessment } from '../types';
 
-export function useTriageAssessments(triageOfficerId?: string) {
+export function useTriageAssessments(triageOfficerId?: string, patientId?: string) {
   const [assessments, setAssessments] = useState<TriageAssessment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchAssessments();
-  }, [triageOfficerId]);
+  }, [triageOfficerId, patientId]);
 
   const fetchAssessments = async () => {
     try {
@@ -29,6 +30,12 @@ export function useTriageAssessments(triageOfficerId?: string) {
         q = query(
           collection(db, 'triage_assessments'), 
           where('triage_officer_id', '==', triageOfficerId),
+          orderBy('created_at', 'desc')
+        );
+      } else if (patientId) {
+        q = query(
+          collection(db, 'triage_assessments'), 
+          where('patient_id', '==', patientId),
           orderBy('created_at', 'desc')
         );
       }
@@ -41,6 +48,35 @@ export function useTriageAssessments(triageOfficerId?: string) {
         created_at: doc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
         updated_at: doc.data().updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
       })) as TriageAssessment[];
+      
+      // Fetch patient and triage officer information
+      for (const assessment of assessmentsData) {
+        try {
+          // Fetch patient info
+          const patientDoc = await getDoc(doc(db, 'patients', assessment.patient_id));
+          if (patientDoc.exists()) {
+            assessment.patient = {
+              id: patientDoc.id,
+              ...patientDoc.data(),
+              created_at: patientDoc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+              updated_at: patientDoc.data().updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+            } as any;
+          }
+          
+          // Fetch triage officer info
+          const triageOfficerDoc = await getDoc(doc(db, 'users', assessment.triage_officer_id));
+          if (triageOfficerDoc.exists()) {
+            assessment.triage_officer = {
+              id: triageOfficerDoc.id,
+              ...triageOfficerDoc.data(),
+              created_at: triageOfficerDoc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+              updated_at: triageOfficerDoc.data().updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+            } as any;
+          }
+        } catch (error) {
+          console.error('Error fetching related data:', error);
+        }
+      }
       
       setAssessments(assessmentsData);
     } catch (error) {

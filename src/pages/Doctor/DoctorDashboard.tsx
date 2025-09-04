@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Users, Pill, TestTube, Clock, FileText, Stethoscope } from 'lucide-react';
+import { Calendar, Users, Pill, TestTube, Clock, FileText, Stethoscope, Send } from 'lucide-react';
 import { StatsCard } from '../../components/Dashboard/StatsCard';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePrescriptions } from '../../hooks/usePrescriptions';
@@ -8,11 +8,15 @@ import { usePatients } from '../../hooks/usePatients';
 import { useAuthContext } from '../../context/AuthContext';
 import { PatientHistoryModal } from '../../components/Doctor/PatientHistoryModal';
 import { PatientSearchModal } from '../../components/Patients/PatientSearchModal';
+import { SendLabTestModal } from '../../components/Doctor/SendLabTestModal';
+import { SendPrescriptionModal } from '../../components/Doctor/SendPrescriptionModal';
 import { format } from 'date-fns';
 
 export function DoctorDashboard() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showPatientSearch, setShowPatientSearch] = useState(false);
+  const [showLabModal, setShowLabModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const { user } = useAuthContext();
   const { appointments } = useAppointments(user?.id);
@@ -57,6 +61,15 @@ export function DoctorDashboard() {
     }
   };
 
+  const handleQuickLabTest = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowLabModal(true);
+  };
+
+  const handleQuickPrescription = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowPrescriptionModal(true);
+  };
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -103,6 +116,20 @@ export function DoctorDashboard() {
                 <div className="text-sm text-gray-500">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     patient.card_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  <button
+                    onClick={() => handleQuickLabTest(patient)}
+                    className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                    title="Send Lab Test"
+                  >
+                    <TestTube className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleQuickPrescription(patient)}
+                    className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors"
+                    title="Send Prescription"
+                  >
+                    <Pill className="w-4 h-4" />
+                  </button>
                   }`}>
                     {patient.card_status.toUpperCase()}
                   </span>
@@ -183,6 +210,34 @@ export function DoctorDashboard() {
           }}
           onSuccess={() => {
             setShowHistoryModal(false);
+            setSelectedPatient(null);
+          }}
+        />
+      )}
+
+      {showLabModal && selectedPatient && (
+        <SendLabTestModal
+          patient={selectedPatient}
+          onClose={() => {
+            setShowLabModal(false);
+            setSelectedPatient(null);
+          }}
+          onSuccess={() => {
+            setShowLabModal(false);
+            setSelectedPatient(null);
+          }}
+        />
+      )}
+
+      {showPrescriptionModal && selectedPatient && (
+        <SendPrescriptionModal
+          patient={selectedPatient}
+          onClose={() => {
+            setShowPrescriptionModal(false);
+            setSelectedPatient(null);
+          }}
+          onSuccess={() => {
+            setShowPrescriptionModal(false);
             setSelectedPatient(null);
           }}
         />

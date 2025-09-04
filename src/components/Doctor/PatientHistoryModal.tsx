@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { X, FileText, Save, TestTube, Pill, History, Send } from 'lucide-react';
+import { X, FileText, Save, TestTube, Pill, History, Send, Heart, Activity } from 'lucide-react';
 import { usePatientVisits } from '../../hooks/usePatientVisits';
 import { useLabTests } from '../../hooks/useLabTests';
 import { usePrescriptions } from '../../hooks/usePrescriptions';
+import { useTriageAssessments } from '../../hooks/useTriageAssessments';
 import { useAuthContext } from '../../context/AuthContext';
+import { SendLabTestModal } from './SendLabTestModal';
+import { SendPrescriptionModal } from './SendPrescriptionModal';
 import { Patient } from '../../types';
 import { format } from 'date-fns';
 
@@ -25,12 +28,6 @@ interface PatientHistoryFormData {
   weight?: number;
   height?: number;
   oxygen_saturation?: number;
-  lab_tests?: string;
-  prescription_medication?: string;
-  prescription_dosage?: string;
-  prescription_frequency?: string;
-  prescription_duration?: string;
-  prescription_instructions?: string;
 }
 
 const schema = yup.object({
@@ -48,12 +45,6 @@ const schema = yup.object({
   weight: yup.number().positive().nullable(),
   height: yup.number().positive().nullable(),
   oxygen_saturation: yup.number().min(0).max(100).nullable(),
-  lab_tests: yup.string(),
-  prescription_medication: yup.string(),
-  prescription_dosage: yup.string(),
-  prescription_frequency: yup.string(),
-  prescription_duration: yup.string(),
-  prescription_instructions: yup.string(),
 });
 
 interface PatientHistoryModalProps {
@@ -66,16 +57,34 @@ interface PatientHistoryModalProps {
 export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess }: PatientHistoryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'history' | 'new_visit'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'new_visit' | 'lab_tests' | 'prescriptions'>('history');
+  const [showLabModal, setShowLabModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const { visits, addPatientVisit } = usePatientVisits(patient.id);
   const { addLabTest } = useLabTests();
   const { addPrescription } = usePrescriptions();
+  const { assessments } = useTriageAssessments(undefined, patient.id);
   const { user } = useAuthContext();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<PatientHistoryFormData>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<PatientHistoryFormData>({
     resolver: yupResolver(schema),
   });
 
+  // Get the latest triage assessment for this patient
+  const latestTriageAssessment = assessments.length > 0 ? assessments[0] : null;
+
+  // Pre-fill vital signs from triage if available
+  React.useEffect(() => {
+    if (latestTriageAssessment?.vital_signs) {
+      const vs = latestTriageAssessment.vital_signs;
+      if (vs.temperature) setValue('temperature', vs.temperature);
+      if (vs.blood_pressure_systolic) setValue('blood_pressure_systolic', vs.blood_pressure_systolic);
+      if (vs.blood_pressure_diastolic) setValue('blood_pressure_diastolic', vs.blood_pressure_diastolic);
+      if (vs.heart_rate) setValue('heart_rate', vs.heart_rate);
+      if (vs.respiratory_rate) setValue('respiratory_rate', vs.respiratory_rate);
+      if (vs.oxygen_saturation) setValue('oxygen_saturation', vs.oxygen_saturation);
+    }
+  }, [latestTriageAssessment, setValue]);
   const onSubmit = async (data: PatientHistoryFormData) => {
     setIsSubmitting(true);
     setError(null);
@@ -103,8 +112,8 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
           height: data.height,
           oxygen_saturation: data.oxygen_saturation,
         },
-        lab_tests_requested: data.lab_tests ? data.lab_tests.split(',').map(t => t.trim()) : [],
-        prescriptions_given: data.prescription_medication ? [data.prescription_medication] : [],
+        lab_tests_requested: [],
+        prescriptions_given: [],
       };
 
       const visitResult = await addPatientVisit(visitData);
@@ -113,37 +122,6 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
         throw new Error('Failed to save visit record');
       }
 
-      // Create lab test requests if specified
-      if (data.lab_tests) {
-        const labTests = data.lab_tests.split(',').map(t => t.trim());
-        for (const testName of labTests) {
-          await addLabTest({
-            patient_id: patient.id,
-            doctor_id: user?.id || '',
-            appointment_id: appointmentId,
-            test_name: testName,
-            test_type: 'other',
-            status: 'requested',
-            notes: `Requested during visit on ${format(new Date(), 'MMM dd, yyyy')}`,
-            requested_at: new Date().toISOString(),
-          });
-        }
-      }
-
-      // Create prescription if specified
-      if (data.prescription_medication) {
-        await addPrescription({
-          patient_id: patient.id,
-          doctor_id: user?.id || '',
-          appointment_id: appointmentId,
-          medication_name: data.prescription_medication,
-          dosage: data.prescription_dosage || '',
-          frequency: data.prescription_frequency || '',
-          duration: data.prescription_duration || '',
-          instructions: data.prescription_instructions,
-          status: 'pending',
-        });
-      }
 
       onSuccess();
     } catch (error) {
@@ -196,6 +174,26 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
             >
               NEW VISIT
             </button>
+            <button
+              onClick={() => setActiveTab('lab_tests')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'lab_tests'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              LAB TESTS
+            </button>
+            <button
+              onClick={() => setActiveTab('prescriptions')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'prescriptions'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              PRESCRIPTIONS
+            </button>
           </nav>
         </div>
 
@@ -243,6 +241,59 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
               </div>
             </div>
 
+            {latestTriageAssessment && (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Heart className="w-5 h-5 text-red-600" />
+                  <span>Latest Triage Assessment</span>
+                </h3>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><strong>Priority:</strong> 
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                        latestTriageAssessment.priority_level === 'emergency' ? 'bg-red-100 text-red-800' :
+                        latestTriageAssessment.priority_level === 'urgent' ? 'bg-orange-100 text-orange-800' :
+                        latestTriageAssessment.priority_level === 'semi_urgent' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {latestTriageAssessment.priority_level.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </div>
+                    <div><strong>Chief Complaint:</strong> {latestTriageAssessment.chief_complaint}</div>
+                    <div className="md:col-span-2"><strong>Assessment Notes:</strong> {latestTriageAssessment.assessment_notes}</div>
+                    <div className="md:col-span-2"><strong>Recommended Action:</strong> {latestTriageAssessment.recommended_action}</div>
+                    <div><strong>Assessed by:</strong> {latestTriageAssessment.triage_officer?.first_name} {latestTriageAssessment.triage_officer?.last_name}</div>
+                    <div><strong>Date:</strong> {format(new Date(latestTriageAssessment.created_at), 'MMM dd, yyyy hh:mm a')}</div>
+                  </div>
+                  
+                  {latestTriageAssessment.vital_signs && Object.values(latestTriageAssessment.vital_signs).some(v => v !== undefined && v !== null) && (
+                    <div className="mt-4 pt-4 border-t border-red-200">
+                      <h4 className="font-medium text-red-800 mb-2">Triage Vital Signs</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        {latestTriageAssessment.vital_signs.temperature && (
+                          <div><strong>Temp:</strong> {latestTriageAssessment.vital_signs.temperature}°F</div>
+                        )}
+                        {latestTriageAssessment.vital_signs.heart_rate && (
+                          <div><strong>HR:</strong> {latestTriageAssessment.vital_signs.heart_rate} bpm</div>
+                        )}
+                        {latestTriageAssessment.vital_signs.blood_pressure_systolic && latestTriageAssessment.vital_signs.blood_pressure_diastolic && (
+                          <div><strong>BP:</strong> {latestTriageAssessment.vital_signs.blood_pressure_systolic}/{latestTriageAssessment.vital_signs.blood_pressure_diastolic}</div>
+                        )}
+                        {latestTriageAssessment.vital_signs.oxygen_saturation && (
+                          <div><strong>O2 Sat:</strong> {latestTriageAssessment.vital_signs.oxygen_saturation}%</div>
+                        )}
+                        {latestTriageAssessment.vital_signs.respiratory_rate && (
+                          <div><strong>RR:</strong> {latestTriageAssessment.vital_signs.respiratory_rate}</div>
+                        )}
+                        {latestTriageAssessment.vital_signs.pain_scale !== undefined && (
+                          <div><strong>Pain:</strong> {latestTriageAssessment.vital_signs.pain_scale}/10</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Visit History</h3>
               <div className="space-y-4">
@@ -274,6 +325,21 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
                           <strong>Follow-up:</strong> {visit.follow_up_instructions}
                         </div>
                       )}
+                      {visit.vital_signs && Object.values(visit.vital_signs).some(v => v !== undefined && v !== null) && (
+                        <div className="md:col-span-2 mt-2 pt-2 border-t border-gray-200">
+                          <strong>Vital Signs:</strong>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1 text-xs">
+                            {visit.vital_signs.temperature && <div>Temp: {visit.vital_signs.temperature}°F</div>}
+                            {visit.vital_signs.heart_rate && <div>HR: {visit.vital_signs.heart_rate} bpm</div>}
+                            {visit.vital_signs.blood_pressure_systolic && visit.vital_signs.blood_pressure_diastolic && (
+                              <div>BP: {visit.vital_signs.blood_pressure_systolic}/{visit.vital_signs.blood_pressure_diastolic}</div>
+                            )}
+                            {visit.vital_signs.oxygen_saturation && <div>O2: {visit.vital_signs.oxygen_saturation}%</div>}
+                            {visit.vital_signs.weight && <div>Weight: {visit.vital_signs.weight} lbs</div>}
+                            {visit.vital_signs.height && <div>Height: {visit.vital_signs.height} in</div>}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -286,7 +352,7 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
               </div>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'new_visit' ? (
           <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -294,6 +360,21 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
               </div>
             )}
 
+            {latestTriageAssessment && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Activity className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-700">Triage Information Available</span>
+                </div>
+                <div className="text-sm text-blue-600">
+                  Priority: {latestTriageAssessment.priority_level.replace('_', ' ').toUpperCase()} | 
+                  Chief Complaint: {latestTriageAssessment.chief_complaint}
+                  {latestTriageAssessment.vital_signs && Object.values(latestTriageAssessment.vital_signs).some(v => v !== undefined && v !== null) && (
+                    <span> | Vital signs pre-filled from triage</span>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">Clinical Assessment</h3>
@@ -306,6 +387,7 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
                     {...register('chief_complaint')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Primary reason for visit"
+                    defaultValue={latestTriageAssessment?.chief_complaint || ''}
                   />
                   {errors.chief_complaint && (
                     <p className="mt-1 text-sm text-red-600">{errors.chief_complaint.message}</p>
@@ -386,7 +468,12 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Vital Signs</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Vital Signs</h3>
+                  {latestTriageAssessment?.vital_signs && Object.values(latestTriageAssessment.vital_signs).some(v => v !== undefined && v !== null) && (
+                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">Pre-filled from triage</span>
+                  )}
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -463,89 +550,58 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
                       placeholder="68"
                     />
                   </div>
-                </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                    <TestTube className="w-4 h-4 text-blue-600" />
-                    <span>Lab Tests</span>
-                  </h4>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Requested Tests (comma-separated)
+                      Respiratory Rate
                     </label>
-                    <textarea
-                      {...register('lab_tests')}
-                      rows={3}
+                    <input
+                      {...register('respiratory_rate')}
+                      type="number"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="CBC, Blood glucose, Lipid panel"
+                      placeholder="16"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      O2 Saturation (%)
+                    </label>
+                    <input
+                      {...register('oxygen_saturation')}
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="98"
                     />
                   </div>
                 </div>
 
                 <div className="border-t border-gray-200 pt-4">
-                  <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                    <Pill className="w-4 h-4 text-green-600" />
-                    <span>Prescription</span>
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Medication Name
-                      </label>
-                      <input
-                        {...register('prescription_medication')}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Amoxicillin"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Dosage
-                        </label>
-                        <input
-                          {...register('prescription_dosage')}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="500mg"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Frequency
-                        </label>
-                        <input
-                          {...register('prescription_frequency')}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="3 times daily"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Duration
-                      </label>
-                      <input
-                        {...register('prescription_duration')}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="7 days"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Instructions
-                      </label>
-                      <textarea
-                        {...register('prescription_instructions')}
-                        rows={2}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Take with food, complete full course..."
-                      />
-                    </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-md font-semibold text-gray-900 flex items-center space-x-2">
+                      <TestTube className="w-4 h-4 text-blue-600" />
+                      <span>Quick Actions</span>
+                    </h4>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowLabModal(true)}
+                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <TestTube className="w-4 h-4" />
+                      <span>Send Lab Test</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPrescriptionModal(true)}
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <Pill className="w-4 h-4" />
+                      <span>Send Prescription</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -569,6 +625,60 @@ export function PatientHistoryModal({ patient, appointmentId, onClose, onSuccess
               </button>
             </div>
           </form>
+        ) : activeTab === 'lab_tests' ? (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Lab Test Management</h3>
+              <button
+                onClick={() => setShowLabModal(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <TestTube className="w-4 h-4" />
+                <span>New Lab Test</span>
+              </button>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-700 text-sm">
+                Send individual lab test requests to the laboratory. Each test will be tracked separately.
+              </p>
+            </div>
+          </div>
+        ) : activeTab === 'prescriptions' ? (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Prescription Management</h3>
+              <button
+                onClick={() => setShowPrescriptionModal(true)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+              >
+                <Pill className="w-4 h-4" />
+                <span>New Prescription</span>
+              </button>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-700 text-sm">
+                Send individual prescriptions to the pharmacy. Each prescription will be processed separately.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {showLabModal && (
+          <SendLabTestModal
+            patient={patient}
+            appointmentId={appointmentId}
+            onClose={() => setShowLabModal(false)}
+            onSuccess={() => setShowLabModal(false)}
+          />
+        )}
+
+        {showPrescriptionModal && (
+          <SendPrescriptionModal
+            patient={patient}
+            appointmentId={appointmentId}
+            onClose={() => setShowPrescriptionModal(false)}
+            onSuccess={() => setShowPrescriptionModal(false)}
+          />
         )}
       </div>
     </div>
